@@ -1,0 +1,33 @@
+# cert-manager — issues/renews TLS certs (e.g. Let's Encrypt).
+# crds.enabled:true installs the CRDs with the chart (this is the modern flag;
+# the old `installCRDs` is deprecated). ServerSideApply avoids the
+# "metadata.annotations: Too long" error on cert-manager's large CRDs.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"   # infrastructure deploys before apps
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.16.2   # crds.enabled requires chart >= v1.15; verify/bump latest
+    helm:
+      values: |
+        crds:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

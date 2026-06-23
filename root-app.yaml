@@ -1,0 +1,32 @@
+# App-of-apps root.
+# Bootstrap once:  kubectl apply -f root-app.yaml
+# After that, adding/removing a workload is just a commit (add/delete a file under
+# infrastructure/ or apps/).
+#
+# path: "." + recurse:true  -> the root adopts every Application file in the repo
+# (infrastructure/* and apps/*) AND re-applies itself: the root manages itself.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    # Cascading delete: removing the root tears down everything it owns.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/lindritP/homelab_k8s.git
+    targetRevision: main
+    path: .
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
