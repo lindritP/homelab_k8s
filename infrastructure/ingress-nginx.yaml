@@ -20,6 +20,12 @@ spec:
         controller:
           service:
             type: LoadBalancer
+            annotations:
+              # AKS builds HTTP/HTTPS LB health probes from the ports' appProtocol
+              # (http/https). The default probe path "/" returns 404 from ingress-nginx,
+              # so Azure marks the backend unhealthy and times out ALL inbound traffic.
+              # Point the probe at /healthz (returns 200) so the node stays in rotation.
+              service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx
