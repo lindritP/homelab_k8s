@@ -12,7 +12,8 @@ k8s/
 └── infrastructure/          # sync-wave -1 (deploys first)
     ├── ingress-nginx.yaml   # Helm; Service type LoadBalancer -> Azure LB
     ├── cert-manager.yaml    # Helm (jetstack); crds.enabled: true
-    └── cluster-issuers.yaml # raw ClusterIssuers (Let's Encrypt staging + prod), wave 1
+    ├── cluster-issuers.yaml # raw ClusterIssuers (Let's Encrypt staging + prod), wave 1
+    └── argocd-server-ingress.yaml # Argo CD UI at argocd.lindrit.at, TLS via cert-manager, wave 2
 ```
 
 Most files under `infrastructure/` are Argo CD `Application`s. The root (`path: .`,
