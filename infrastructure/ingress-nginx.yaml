@@ -23,9 +23,17 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx
+  # AKS's admission enforcer injects extra namespaceSelector.matchExpressions into the
+  # ingress-nginx admission webhook (same drift/selfHeal loop as cert-manager). Ignore it.
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions:
+        - '.webhooks[]?.namespaceSelector.matchExpressions'
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true

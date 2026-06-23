@@ -1,0 +1,48 @@
+# Let's Encrypt ClusterIssuers (cluster-scoped — usable from any namespace).
+#
+# These are RAW cert-manager resources (not an Argo Application). The root app
+# applies them directly. sync-wave "1" lands them AFTER cert-manager and
+# ingress-nginx (wave -1), so the CRDs + webhook + ingress controller are ready.
+#
+# Test with the STAGING issuer first (generous rate limits, but browser-untrusted
+# certs); switch an Ingress to prod once issuance works by setting:
+#   metadata.annotations:
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+#
+# Note: certs only actually issue once an Ingress (with a real DNS name pointing at
+# the ingress-nginx LoadBalancer IP) requests one. Creating the issuers now just
+# registers the ACME account.
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: lindrit.prekaj@outlook.com   # TODO: confirm the ACME contact email
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: lindrit.prekaj@outlook.com   # TODO: confirm the ACME contact email
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx

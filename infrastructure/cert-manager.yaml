@@ -24,6 +24,23 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager
+  # On AKS, the admission "enforcer" injects extra namespaceSelector.matchExpressions
+  # (control-plane, kubernetes.azure.com/managedby) into webhook configs so they skip
+  # system namespaces — and cert-manager's cainjector rewrites clientConfig.caBundle.
+  # Both read as permanent drift to Argo CD, so selfHeal re-syncs in a tight loop.
+  # Ignore both fields. (For older cert-manager whose CRDs use conversion webhooks,
+  # also ignore CustomResourceDefinition .spec.conversion.webhook.clientConfig.caBundle.)
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions:
+        - '.webhooks[]?.namespaceSelector.matchExpressions'
+        - '.webhooks[]?.clientConfig.caBundle'
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions:
+        - '.webhooks[]?.namespaceSelector.matchExpressions'
+        - '.webhooks[]?.clientConfig.caBundle'
   syncPolicy:
     automated:
       prune: true
@@ -31,3 +48,6 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      # Make selfHeal honor ignoreDifferences above — without this it keeps
+      # re-syncing the ignored caBundle field (the "every second" loop).
+      - RespectIgnoreDifferences=true

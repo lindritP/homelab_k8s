@@ -8,16 +8,32 @@ everything it deploys onto the cluster.
 
 ```
 k8s/
-├── root-app.yaml          # app-of-apps root; recurse:true, prune + selfHeal
-└── infrastructure/        # sync-wave -1 (deploys first)
-    ├── ingress-nginx.yaml # Helm; Service type LoadBalancer -> Azure LB
-    └── cert-manager.yaml  # Helm (jetstack); crds.enabled: true
+├── root-app.yaml            # app-of-apps root; recurse:true, prune + selfHeal
+└── infrastructure/          # sync-wave -1 (deploys first)
+    ├── ingress-nginx.yaml   # Helm; Service type LoadBalancer -> Azure LB
+    ├── cert-manager.yaml    # Helm (jetstack); crds.enabled: true
+    └── cluster-issuers.yaml # raw ClusterIssuers (Let's Encrypt staging + prod), wave 1
 ```
 
-Every file under `infrastructure/` is an Argo CD `Application`. The root (`path: .`,
+Most files under `infrastructure/` are Argo CD `Application`s. The root (`path: .`,
 `recurse: true`) adopts them all and re-applies itself, so the root manages itself.
 `prune: true` is set everywhere — **deleting a file from this repo tears down the
 workload**.
+
+`cluster-issuers.yaml` is the exception: it holds raw cert-manager `ClusterIssuer`
+resources (not an Application), applied directly by the root at sync-wave `1` so they
+land after cert-manager and ingress-nginx are healthy.
+
+### AKS webhook drift / Argo CD selfHeal loop
+
+On AKS, the admission "enforcer" injects extra `namespaceSelector.matchExpressions`
+(`control-plane`, `kubernetes.azure.com/managedby`) into **every** webhook config so they
+skip system namespaces. cert-manager additionally rewrites the webhook `caBundle`. Neither
+is in the Helm-rendered manifest, so Argo CD reads them as permanent drift and — with
+`selfHeal` — re-syncs every second. Both `cert-manager.yaml` and `ingress-nginx.yaml`
+defuse this with `ignoreDifferences` on the webhook `namespaceSelector.matchExpressions`
+(and `caBundle` for cert-manager) plus the `RespectIgnoreDifferences=true` sync option.
+Don't remove those — any chart that ships an admission webhook on AKS needs the same.
 
 Application workloads will live under an `apps/` directory (sync-wave `0`, so they land
 after the platform pieces). None are defined yet.
