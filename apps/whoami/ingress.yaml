@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: whoami
+  namespace: whoami
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod   # reuses the shared prod issuer
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: whoami.lindrit.at
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: whoami
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - whoami.lindrit.at
+      secretName: whoami-tls   # cert-manager creates this automatically

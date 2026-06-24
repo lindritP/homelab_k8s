@@ -8,18 +8,30 @@ everything it deploys onto the cluster.
 
 ```
 k8s/
-├── root-app.yaml            # app-of-apps root; recurse:true, prune + selfHeal
-└── infrastructure/          # sync-wave -1 (deploys first)
-    ├── ingress-nginx.yaml   # Helm; Service type LoadBalancer -> Azure LB
-    ├── cert-manager.yaml    # Helm (jetstack); crds.enabled: true
-    ├── cluster-issuers.yaml # raw ClusterIssuers (Let's Encrypt staging + prod), wave 1
-    └── argocd-server-ingress.yaml # Argo CD UI at argocd.lindrit.at, TLS via cert-manager, wave 2
+├── root-app.yaml            # app-of-apps root; recurse + include scope, prune + selfHeal
+├── infrastructure/          # platform pieces (sync-wave -1 .. 2)
+│   ├── ingress-nginx.yaml   # Helm; Service type LoadBalancer -> Azure LB
+│   ├── cert-manager.yaml    # Helm (jetstack); crds.enabled: true
+│   ├── cluster-issuers.yaml # raw ClusterIssuers (Let's Encrypt staging + prod), wave 1
+│   └── argocd-server-ingress.yaml # Argo CD UI at argocd.lindrit.at, TLS, wave 2
+└── apps/                    # one Application per app (sync-wave 0)
+    ├── whoami.yaml          # Application -> apps/whoami/  (https://whoami.lindrit.at)
+    └── whoami/              # the app's raw manifests
+        ├── deployment.yaml
+        ├── service.yaml
+        └── ingress.yaml
 ```
 
-Most files under `infrastructure/` are Argo CD `Application`s. The root (`path: .`,
-`recurse: true`) adopts them all and re-applies itself, so the root manages itself.
-`prune: true` is set everywhere — **deleting a file from this repo tears down the
-workload**.
+Most files under `infrastructure/` are Argo CD `Application`s. The root re-applies
+itself, so the root manages itself. `prune: true` is set everywhere — **deleting a file
+from this repo tears down the workload**.
+
+The root recurses the repo but **scopes what it adopts** via
+`directory.include: '{root-app.yaml,infrastructure/*,apps/*.yaml}'`. That means it picks
+up the top-level files in each area but NOT the per-app manifest folders under
+`apps/<name>/` — those are managed by each app's own Application. Without this scope the
+root would apply `apps/<name>/*` directly AND the child Application would too, and they'd
+fight over the same resources.
 
 `cluster-issuers.yaml` is the exception: it holds raw cert-manager `ClusterIssuer`
 resources (not an Application), applied directly by the root at sync-wave `1` so they
@@ -36,8 +48,21 @@ defuse this with `ignoreDifferences` on the webhook `namespaceSelector.matchExpr
 (and `caBundle` for cert-manager) plus the `RespectIgnoreDifferences=true` sync option.
 Don't remove those — any chart that ships an admission webhook on AKS needs the same.
 
-Application workloads will live under an `apps/` directory (sync-wave `0`, so they land
-after the platform pieces). None are defined yet.
+## Adding a web app (e.g. `whoami`)
+
+App workloads live under `apps/` (sync-wave `0`, so they land after the platform). Each
+app is **one Application** (`apps/<name>.yaml`) pointing at a manifests folder
+(`apps/<name>/`) that holds its Deployment + Service + Ingress. To expose it on the
+internet at `https://<name>.lindrit.at`:
+
+1. Make sure DNS resolves — the wildcard `*.lindrit.at → 20.79.103.132` covers it.
+2. `apps/<name>/ingress.yaml`: set `host: <name>.lindrit.at`, `ingressClassName: nginx`,
+   annotation `cert-manager.io/cluster-issuer: letsencrypt-prod`, and a `tls` block with a
+   `secretName` — cert-manager issues the cert automatically.
+3. `apps/<name>.yaml`: an Application with `CreateNamespace=true` and
+   `destination.namespace: <name>`.
+
+`whoami/` is a complete, copyable example.
 
 ## Bootstrap (once)
 
