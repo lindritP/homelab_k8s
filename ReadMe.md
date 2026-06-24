@@ -27,11 +27,12 @@ itself, so the root manages itself. `prune: true` is set everywhere — **deleti
 from this repo tears down the workload**.
 
 The root recurses the repo but **scopes what it adopts** via
-`directory.include: '{root-app.yaml,infrastructure/*,apps/*.yaml}'`. That means it picks
-up the top-level files in each area but NOT the per-app manifest folders under
-`apps/<name>/` — those are managed by each app's own Application. Without this scope the
-root would apply `apps/<name>/*` directly AND the child Application would too, and they'd
-fight over the same resources.
+`directory.exclude: 'apps/*/*'`. That excludes the per-app manifest folders under
+`apps/<name>/` (owned by each app's own Application) while still rendering the top-level
+files — `root-app.yaml`, `infrastructure/*`, and `apps/*.yaml`. Without this scope the
+root applies `apps/<name>/*` directly AND the child Application does too, and they fight
+over the same resources. (A brace-list `include` was tried first and matched too broadly,
+so the root co-owned every workload — `exclude` is the reliable form.)
 
 `cluster-issuers.yaml` is the exception: it holds raw cert-manager `ClusterIssuer`
 resources (not an Application), applied directly by the root at sync-wave `1` so they

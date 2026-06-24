@@ -21,11 +21,11 @@ spec:
     path: .
     directory:
       recurse: true
-      # Adopt only the top-level files in each area — NOT the per-app manifest
-      # folders under apps/<name>/, which their own Application manages. Without
-      # this, the root would also apply apps/<name>/* directly and fight the child
-      # Application over the same resources.
-      include: '{root-app.yaml,infrastructure/*,apps/*.yaml}'
+      # Render top-level files (root-app.yaml, infrastructure/*, apps/*.yaml) but NOT
+      # the per-app manifest folders apps/<name>/* — each app's own Application owns
+      # those. exclude is reliable here; a brace-list `include` matched too broadly
+      # and left the root co-owning every app's workload (Deployment/Service/Ingress).
+      exclude: 'apps/*/*'
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
