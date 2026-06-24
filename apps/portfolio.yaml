@@ -1,0 +1,26 @@
+# Portfolio site (React built to static files, served by nginx) at https://dev.lindrit.at.
+# Source lives in homelab_cloud/apps/dev.lindrit.at; the image is pulled from GHCR.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: portfolio
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/lindritP/homelab_k8s.git
+    targetRevision: main
+    path: apps/portfolio
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: portfolio
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
